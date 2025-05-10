@@ -8,15 +8,15 @@ services:
 
     environment:
 
-      VERSION: "10"
+      VERSION: "11"
 
       USERNAME: "MASTER"
 
       PASSWORD: "admin@123"
 
-      RAM_SIZE: "4"
+      RAM_SIZE: "16"
 
-      CPU_CORES: "4"
+      CPU_CORES: "8"
 
       DISK_SIZE: "500G"
 
