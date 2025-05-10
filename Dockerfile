@@ -2,7 +2,7 @@
 FROM dockurr/windows:latest
 
 # Çevresel değişkenler, kullanıcının belirttiği parametrelerle yapılandırılabilir
-ENV VERSION=10
+ENV VERSION=11
 ENV USERNAME=MASTER
 ENV PASSWORD=admin@123
 ENV RAM_SIZE=16G
