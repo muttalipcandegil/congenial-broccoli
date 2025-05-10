@@ -14,7 +14,7 @@ services:
 
       PASSWORD: "admin@123"
 
-      RAM_SIZE: "5"
+      RAM_SIZE: "4"
 
       CPU_CORES: "4"
 
