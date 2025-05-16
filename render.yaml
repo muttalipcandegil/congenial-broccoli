@@ -1,43 +1,12 @@
+version: '3.8'
+
 services:
-
-  windows:
-
-    image: dockurr/windows
-
-    container_name: windows
-
-    environment:
-
-      VERSION: "11"
-
-      USERNAME: "MASTER"
-
-      PASSWORD: "admin@123"
-
-      RAM_SIZE: "16"
-
-      CPU_CORES: "8"
-
-      DISK_SIZE: "500G"
-
-      DISK2_SIZE: "100G"
-
-    devices:
-
-      - /dev/kvm
-
-      - /dev/net/tun
-
-    cap_add:
-
-      - NET_ADMIN
-
+  ubuntu-desktop:
+    build: .
+    container_name: ubuntu-desktop-lxqt
     ports:
-
-      - "8080:8080"
-
-      - "3389:3389/tcp"
-
-      - "3389:3389/udp"
-
-    stop_grace_period: 2m
+      - "5901:5901"
+      - "8080:80"
+    environment:
+      - VNC_PASSWORD=123456
+    restart: unless-stopped
