@@ -1,7 +1,5 @@
 FROM dorowu/ubuntu-desktop-lxde-vnc:focal-lxqt
 
-RUN apt-get update && apt-get install -y curl
-
 CMD bash -c '\
   /usr/bin/supervisord -c /etc/supervisor/supervisord.conf & \
   sleep 10 && \
