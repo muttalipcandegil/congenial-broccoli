@@ -1,4 +1,4 @@
-name: Install and Run RustDesk on Windows
+name: RustDesk Run
 
 on:
   workflow_dispatch:
@@ -8,64 +8,37 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - name: Set up temporary directory
-      run: |
-        mkdir C:\Temp
+      - name: Run RustDesk Batch Script directly
+        shell: cmd
+        run: |
+          @echo off
+          setlocal ENABLEEXTENSIONS ENABLEDELAYEDEXPANSION
+          set alfanum=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789
+          set rustdesk_pw=
+          for /L %%b in (1,1,12) do (
+              set /A rnd_num=!RANDOM! %% 62
+              for %%c in (!rnd_num!) do (
+                  set rustdesk_pw=!rustdesk_pw!!alfanum:~%%c,1!
+              )
+          )
+          set rustdesk_cfg="configstring"
+          if not exist C:\Temp\ md C:\Temp\
+          cd C:\Temp\
+          curl -L "https://github.com/rustdesk/rustdesk/releases/download/1.2.6/rustdesk-1.2.6-x86_64.exe" -o rustdesk.exe
+          rustdesk.exe --silent-install
+          timeout /t 20
+          cd "C:\Program Files\RustDesk\"
+          rustdesk.exe --install-service
+          timeout /t 20
+          for /f "delims=" %%i in ('rustdesk.exe --get-id ^| more') do set rustdesk_id=%%i
+          rustdesk.exe --config %rustdesk_cfg%
+          rustdesk.exe --password %rustdesk_pw%
+          echo ...............................................
+          echo RustDesk ID: %rustdesk_id%
+          echo Password: %rustdesk_pw%
+          echo ...............................................
 
-    - name: Download RustDesk
-      run: |
-        curl -L "https://github.com/rustdesk/rustdesk/releases/download/1.2.6/rustdesk-1.2.6-x86_64.exe" -o C:\Temp\rustdesk.exe
-
-    - name: Install RustDesk silently
-      run: |
-        C:\Temp\rustdesk.exe --silent-install
-        timeout /t 20
-
-    - name: Install RustDesk as a service
-      run: |
-        cd "C:\Program Files\RustDesk\"
-        .\rustdesk.exe --install-service
-        timeout /t 20
-
-    - name: Generate Random Password
-      id: genpass
-      shell: cmd
-      run: |
-        setlocal ENABLEEXTENSIONS ENABLEDELAYEDEXPANSION
-        set alfanum=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789
-        set rustdesk_pw=
-        for /L %%b in (1,1,12) do (
-            set /A rnd_num=!RANDOM! %% 62
-            for %%c in (!rnd_num!) do (
-                set rustdesk_pw=!rustdesk_pw!!alfanum:~%%c,1!
-            )
-        )
-        echo RUSTDESK_PW=!rustdesk_pw!>> %GITHUB_ENV%
-
-    - name: Get RustDesk ID
-      id: getid
-      run: |
-        cd "C:\Program Files\RustDesk\"
-        for /f "delims=" %%i in ('rustdesk.exe --get-id ^| more') do set rustdesk_id=%%i
-        echo RUSTDESK_ID=%rustdesk_id%>> %GITHUB_ENV%
-
-    - name: Configure RustDesk
-      run: |
-        cd "C:\Program Files\RustDesk\"
-        .\rustdesk.exe --config "configstring"
-        .\rustdesk.exe --password %RUSTDESK_PW%
-
-    - name: Show RustDesk Info
-      run: |
-        echo ...............................................
-        echo RustDesk ID: %RUSTDESK_ID%
-        echo Password: %RUSTDESK_PW%
-        echo ...............................................
-
-    - name: Keep runner alive with PowerShell loop
-  shell: pwsh
-  run: |
-    Write-Host "Keeping the GitHub Actions runner alive with infinite loop..."
-    while ($true) {
-      Start-Sleep -Seconds 3
-    }
+      - name: Keep runner alive
+        shell: pwsh
+        run: |
+          while ($true) { Start-Sleep -Seconds 60 }
