@@ -1,0 +1,66 @@
+name: Build Buildroot Images (x86 & x64)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  buildroot:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        arch: [i386, x86_64]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y build-essential git bc bison flex libssl-dev \
+            libncurses5-dev wget curl python3 unzip
+
+      - name: Download and extract Buildroot
+        run: |
+          wget https://buildroot.org/downloads/buildroot-2023.08.tar.gz
+          tar xf buildroot-2023.08.tar.gz
+          mv buildroot-2023.08 buildroot
+
+      - name: Create minimal defconfig with required packages
+        run: |
+          cd buildroot
+          cat > configs/minimal_defconfig << 'EOF'
+BR2_i386=y
+BR2_PACKAGE_PYTHON3=y
+BR2_PACKAGE_CURL=y
+BR2_PACKAGE_WGET=y
+BR2_PACKAGE_IPUTILS_PING=y
+BR2_PACKAGE_SCREENFETCH=y
+BR2_ROOTFS_OVERLAY="board/rootfs_overlay"
+EOF
+
+      - name: Setup rootfs overlay for screenfetch auto start
+        run: |
+          mkdir -p buildroot/board/rootfs_overlay/etc/profile.d
+          echo '#!/bin/sh' > buildroot/board/rootfs_overlay/etc/profile.d/screenfetch.sh
+          echo 'screenfetch' >> buildroot/board/rootfs_overlay/etc/profile.d/screenfetch.sh
+          chmod +x buildroot/board/rootfs_overlay/etc/profile.d/screenfetch.sh
+
+      - name: Build Buildroot for ${{ matrix.arch }}
+        run: |
+          cd buildroot
+          if [ "${{ matrix.arch }}" = "x86_64" ]; then
+            sed -i 's/^BR2_i386=y/BR2_x86_64=y/' configs/minimal_defconfig
+          fi
+          make minimal_defconfig
+          make -j$(nproc)
+
+      - name: Upload Buildroot images
+        uses: actions/upload-artifact@v3
+        with:
+          name: buildroot-image-${{ matrix.arch }}
+          path: buildroot/output/images/
