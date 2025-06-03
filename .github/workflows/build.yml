@@ -19,7 +19,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update -y
+          sudo apt-get update
           sudo apt-get install -y build-essential git wget curl python3 pkg-config bison flex gettext ncurses-dev
 
       - name: Download Buildroot
@@ -31,29 +31,26 @@ jobs:
       - name: Configure Buildroot for ${{ matrix.arch }}
         run: |
           cd buildroot
-          # Temel config oluşturuyoruz
           make defconfig
 
-          # buildroot configsini düzenleyelim (örnek olarak temel paketleri ekliyoruz)
-          # 'package' dizininde ilgili paketleri enable eden config satırlarını ekle:
-          echo "BR2_PACKAGE_PYTHON3=y" >> .config
-          echo "BR2_PACKAGE_CURL=y" >> .config
-          echo "BR2_PACKAGE_WGET=y" >> .config
-          echo "BR2_PACKAGE_IPUTILS_PING=y" >> .config
-          echo "BR2_PACKAGE_GIT=y" >> .config
-          echo "BR2_PACKAGE_SCREENFETCH=y" >> .config
-          echo "BR2_PACKAGE_BASH=y" >> .config
+          # Temel paketleri aktif et
+          scripts/config --enable BR2_PACKAGE_PYTHON3
+          scripts/config --enable BR2_PACKAGE_CURL
+          scripts/config --enable BR2_PACKAGE_WGET
+          scripts/config --enable BR2_PACKAGE_IPUTILS_PING
+          scripts/config --enable BR2_PACKAGE_GIT
+          scripts/config --enable BR2_PACKAGE_SCREENFETCH
+          scripts/config --enable BR2_PACKAGE_BASH
 
-          # Mimariye göre ayarlamalar
+          # Mimariye göre ayar yap
           if [ "${{ matrix.arch }}" = "x86" ]; then
-            echo "BR2_i386=y" >> .config
-            echo "BR2_x86_64=n" >> .config
+            scripts/config --enable BR2_i386
+            scripts/config --disable BR2_x86_64
           else
-            echo "BR2_x86_64=y" >> .config
-            echo "BR2_i386=n" >> .config
+            scripts/config --enable BR2_x86_64
+            scripts/config --disable BR2_i386
           fi
 
-          # Yapılandırmayı senkronize et
           make olddefconfig
 
       - name: Build Buildroot for ${{ matrix.arch }}
@@ -61,31 +58,12 @@ jobs:
           cd buildroot
           make
 
-      - name: Save defconfig file
-        run: |
-          cd buildroot
-          cp .config output/defconfig-${{ matrix.arch }}
-
-      - name: Upload defconfig artifact
+      - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: defconfig-${{ matrix.arch }}
-          path: buildroot/output/defconfig-${{ matrix.arch }}
-
-      - name: Upload root filesystem image
-        uses: actions/upload-artifact@v3
-        with:
-          name: rootfs-${{ matrix.arch }}
-          path: buildroot/output/images/rootfs.ext4
-
-      - name: Upload kernel image
-        uses: actions/upload-artifact@v3
-        with:
-          name: kernel-${{ matrix.arch }}
-          path: buildroot/output/images/bzImage
-
-      - name: Upload disk image (if any)
-        uses: actions/upload-artifact@v3
-        with:
-          name: disk-image-${{ matrix.arch }}
-          path: buildroot/output/images/*.img
+          name: buildroot-artifacts-${{ matrix.arch }}
+          path: |
+            buildroot/output/defconfig
+            buildroot/output/images/rootfs.ext4
+            buildroot/output/images/bzImage
+            buildroot/output/images/*.img
