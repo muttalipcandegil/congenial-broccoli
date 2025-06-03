@@ -1,18 +1,17 @@
-name: Build Buildroot Images (x86 & x64)
+name: Build Buildroot Images
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch:
+  pull_request:
 
 jobs:
-  buildroot:
+  build:
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
-        arch: [i386, x86_64]
+        arch: [x86, x86_64]
 
     steps:
       - name: Checkout repository
@@ -21,46 +20,72 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y build-essential git bc bison flex libssl-dev \
-            libncurses5-dev wget curl python3 unzip
+          sudo apt-get install -y build-essential git wget curl python3 pkg-config bison flex gettext ncurses-dev
 
-      - name: Download and extract Buildroot
+      - name: Download Buildroot
         run: |
-          wget https://buildroot.org/downloads/buildroot-2023.08.tar.gz
-          tar xf buildroot-2023.08.tar.gz
-          mv buildroot-2023.08 buildroot
+          wget https://buildroot.org/downloads/buildroot-2023.02.1.tar.gz
+          tar -xzf buildroot-2023.02.1.tar.gz
+          mv buildroot-2023.02.1 buildroot
 
-      - name: Create minimal defconfig with required packages
+      - name: Configure Buildroot for ${{ matrix.arch }}
         run: |
           cd buildroot
-          cat > configs/minimal_defconfig << 'EOF'
-BR2_i386=y
-BR2_PACKAGE_PYTHON3=y
-BR2_PACKAGE_CURL=y
-BR2_PACKAGE_WGET=y
-BR2_PACKAGE_IPUTILS_PING=y
-BR2_PACKAGE_SCREENFETCH=y
-BR2_ROOTFS_OVERLAY="board/rootfs_overlay"
-EOF
+          # Temel config oluşturuyoruz
+          make defconfig
 
-      - name: Setup rootfs overlay for screenfetch auto start
-        run: |
-          mkdir -p buildroot/board/rootfs_overlay/etc/profile.d
-          echo '#!/bin/sh' > buildroot/board/rootfs_overlay/etc/profile.d/screenfetch.sh
-          echo 'screenfetch' >> buildroot/board/rootfs_overlay/etc/profile.d/screenfetch.sh
-          chmod +x buildroot/board/rootfs_overlay/etc/profile.d/screenfetch.sh
+          # buildroot configsini düzenleyelim (örnek olarak temel paketleri ekliyoruz)
+          # 'package' dizininde ilgili paketleri enable eden config satırlarını ekle:
+          echo "BR2_PACKAGE_PYTHON3=y" >> .config
+          echo "BR2_PACKAGE_CURL=y" >> .config
+          echo "BR2_PACKAGE_WGET=y" >> .config
+          echo "BR2_PACKAGE_IPUTILS_PING=y" >> .config
+          echo "BR2_PACKAGE_GIT=y" >> .config
+          echo "BR2_PACKAGE_SCREENFETCH=y" >> .config
+          echo "BR2_PACKAGE_BASH=y" >> .config
+
+          # Mimariye göre ayarlamalar
+          if [ "${{ matrix.arch }}" = "x86" ]; then
+            echo "BR2_i386=y" >> .config
+            echo "BR2_x86_64=n" >> .config
+          else
+            echo "BR2_x86_64=y" >> .config
+            echo "BR2_i386=n" >> .config
+          fi
+
+          # Yapılandırmayı senkronize et
+          make olddefconfig
 
       - name: Build Buildroot for ${{ matrix.arch }}
         run: |
           cd buildroot
-          if [ "${{ matrix.arch }}" = "x86_64" ]; then
-            sed -i "s/^BR2_i386=y/BR2_x86_64=y/" configs/minimal_defconfig
-          fi
-          make minimal_defconfig
-          make -j$(nproc)
+          make
 
-      - name: Upload Buildroot images
+      - name: Save defconfig file
+        run: |
+          cd buildroot
+          cp .config output/defconfig-${{ matrix.arch }}
+
+      - name: Upload defconfig artifact
         uses: actions/upload-artifact@v3
         with:
-          name: buildroot-image-${{ matrix.arch }}
-          path: buildroot/output/images/
+          name: defconfig-${{ matrix.arch }}
+          path: buildroot/output/defconfig-${{ matrix.arch }}
+
+      - name: Upload root filesystem image
+        uses: actions/upload-artifact@v3
+        with:
+          name: rootfs-${{ matrix.arch }}
+          path: buildroot/output/images/rootfs.ext4
+
+      - name: Upload kernel image
+        uses: actions/upload-artifact@v3
+        with:
+          name: kernel-${{ matrix.arch }}
+          path: buildroot/output/images/bzImage
+
+      - name: Upload disk image (if any)
+        uses: actions/upload-artifact@v3
+        with:
+          name: disk-image-${{ matrix.arch }}
+          path: buildroot/output/images/*.img
