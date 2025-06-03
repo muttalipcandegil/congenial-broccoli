@@ -54,7 +54,7 @@ EOF
         run: |
           cd buildroot
           if [ "${{ matrix.arch }}" = "x86_64" ]; then
-            sed -i 's/^BR2_i386=y/BR2_x86_64=y/' configs/minimal_defconfig
+            sed -i "s/^BR2_i386=y/BR2_x86_64=y/" configs/minimal_defconfig
           fi
           make minimal_defconfig
           make -j$(nproc)
