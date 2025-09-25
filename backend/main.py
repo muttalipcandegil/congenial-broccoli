@@ -369,6 +369,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+def index():
+    return {
+        "name": "Gatespy Analyzer",
+        "status": "ok",
+        "endpoints": {
+            "health": "/health",
+            "analyze": "POST /analyze { url: 'https://...' }",
+            "docs": "/docs"
+        }
+    }
 
 @app.post("/analyze")
 def analyze(req: AnalyzeRequest):
