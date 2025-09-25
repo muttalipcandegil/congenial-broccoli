@@ -1,21 +1,9 @@
-version: '3.8'
-
 services:
-  ubuntu-desktop:
-    build: .
-    container_name: ubuntu-desktop-lxqt
-    ports:
-      - "5901:5901"
-      - "8080:80"
-    environment:
-      - VNC_PASSWORD=123456
-    restart: unless-stopped
-
-  gatespy-analyzer:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-    container_name: gatespy-analyzer
-    ports:
-      - "8000:8000"
-    restart: unless-stopped
+  - type: web
+    name: gatespy-analyzer
+    env: docker
+    plan: free
+    dockerfilePath: backend/Dockerfile
+    region: oregon
+    healthCheckPath: /health
+    autoDeploy: true

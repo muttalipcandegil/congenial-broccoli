@@ -4,10 +4,8 @@ import { useState } from "react";
 import useSWRMutation from "swr/mutation";
 import { Download, Globe, ShieldCheck, Wallet, Network, FileJson } from "lucide-react";
 
-const ANALYZER_URL = process.env.NEXT_PUBLIC_ANALYZER_URL || "http://localhost:8000";
-
 async function analyzeFetcher(url: string, { arg }: { arg: { url: string } }) {
-  const res = await fetch(`${url}/analyze`, {
+  const res = await fetch(`/api/analyze`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(arg),
@@ -18,7 +16,7 @@ async function analyzeFetcher(url: string, { arg }: { arg: { url: string } }) {
 
 export default function Home() {
   const [inputUrl, setInputUrl] = useState("");
-  const { trigger, data, isMutating, error } = useSWRMutation(`${ANALYZER_URL}`, analyzeFetcher);
+  const { trigger, data, isMutating, error } = useSWRMutation(`/api/analyze`, analyzeFetcher);
 
   const handleAnalyze = async () => {
     if (!inputUrl) return;
