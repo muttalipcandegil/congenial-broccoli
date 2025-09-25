@@ -1,11 +1,9 @@
-version: '3.8'
-
 services:
-  gatespy-analyzer:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-    container_name: gatespy-analyzer
-    ports:
-      - "8000:8000"
-    restart: unless-stopped
+  - type: web
+    name: gatespy-analyzer
+    env: docker
+    plan: free
+    dockerfilePath: backend/Dockerfile
+    region: oregon
+    healthCheckPath: /health
+    autoDeploy: true
