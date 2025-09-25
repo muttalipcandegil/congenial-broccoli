@@ -1,22 +1,9 @@
 services:
   - type: web
-    name: gatespy-analyzer
+    name: gatespy
     env: docker
     plan: free
     dockerfilePath: Dockerfile
     region: oregon
-    healthCheckPath: /health
-    autoDeploy: true
-
-  - type: web
-    name: gatespy-web
-    env: docker
-    plan: free
-    dockerfilePath: web/Dockerfile
-    region: oregon
-    envVars:
-      - key: ANALYZER_URL
-        # Set this after analyzer deploys to its public URL, e.g. https://gatespy-analyzer.onrender.com
-        value: https://REPLACE_WITH_ANALYZER_URL
     healthCheckPath: /
     autoDeploy: true
