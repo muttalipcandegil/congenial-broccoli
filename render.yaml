@@ -3,7 +3,7 @@ services:
     name: gatespy-analyzer
     env: docker
     plan: free
-    dockerfilePath: backend/Dockerfile
+    dockerfilePath: Dockerfile
     region: oregon
     healthCheckPath: /health
     autoDeploy: true
