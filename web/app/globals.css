@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-bg: #0A3180;
+}
+
+html, body {
+  height: 100%;
+}
+
+input::placeholder {
+  color: #666;
+}

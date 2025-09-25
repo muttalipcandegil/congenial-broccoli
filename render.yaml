@@ -10,3 +10,12 @@ services:
     environment:
       - VNC_PASSWORD=123456
     restart: unless-stopped
+
+  gatespy-analyzer:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: gatespy-analyzer
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
