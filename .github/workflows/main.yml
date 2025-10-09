@@ -1,0 +1,140 @@
+name: Setup RustDesk on Windows Runner
+
+on:
+  workflow_dispatch:  # Manuel tetikleme için
+
+jobs:
+  setup-rustdesk:
+    runs-on: windows-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Download RustDesk
+      run: |
+        # En son RustDesk sürümünü indir
+        $latestRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/rustdesk/rustdesk/releases/latest"
+        $downloadUrl = $latestRelease.assets | Where-Object { $_.name -like "*x86_64.exe" } | Select-Object -First 1
+        Invoke-WebRequest -Uri $downloadUrl.browser_download_url -OutFile "rustdesk-installer.exe"
+        Write-Host "RustDesk indirildi: $($downloadUrl.name)"
+
+    - name: Generate secure random password
+      id: generate-password
+      run: |
+        # Güvenli rastgele şifre oluştur (16 karakter: harf, sayı, özel karakter)
+        $chars = @()
+        $chars += [char[]](65..90)   # Büyük harf
+        $chars += [char[]](97..122)  # Küçük harf
+        $chars += [char[]](48..57)   # Sayılar
+        $chars += [char[]]('!@#$%^&*'.ToCharArray())  # Özel karakterler
+        
+        $password = -join ($chars | Get-Random -Count 16)
+        Write-Host "Oluşturulan şifre: $password"
+        Write-Output "PASSWORD=$password" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+    - name: Install RustDesk with random password
+      run: |
+        # Sessiz kurulum ve rastgele şifre ayarı
+        Write-Host "RustDesk kurulumu başlatılıyor..."
+        Start-Process -FilePath ".\rustdesk-installer.exe" -ArgumentList "--silent-install", "--password", "$env:PASSWORD" -Wait
+        
+        # Kurulumun tamamlanmasını bekle
+        Start-Sleep -Seconds 10
+        Write-Host "RustDesk kurulumu tamamlandı"
+
+    - name: Get RustDesk ID
+      run: |
+        # RustDesk ID'sini al
+        Start-Sleep -Seconds 5  # Servisin başlaması için bekle
+        
+        # RustDesk executable'ını bul ve ID'yi al
+        $rustdeskPaths = @(
+            "$env:ProgramFiles\RustDesk\rustdesk.exe",
+            "${env:ProgramFiles(x86)}\RustDesk\rustdesk.exe",
+            "$env:LOCALAPPDATA\Programs\RustDesk\rustdesk.exe"
+        )
+        
+        foreach ($path in $rustdeskPaths) {
+            if (Test-Path $path) {
+                Write-Host "RustDesk bulundu: $path"
+                $id = & $path --get-id
+                Write-Host "RustDesk ID: $id"
+                Write-Output "RUSTDESK_ID=$id" | Out-File -FilePath $env:GITHUB_ENV -Append
+                break
+            }
+        }
+        
+        if (-not $env:RUSTDESK_ID) {
+            Write-Host "❌ RustDesk ID alınamadı"
+        }
+
+    - name: Start RustDesk Service
+      run: |
+        # RustDesk servisini başlat
+        Start-Service -Name "RustDesk" -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 3
+        
+        # Servis durumunu kontrol et
+        $service = Get-Service -Name "RustDesk" -ErrorAction SilentlyContinue
+        if ($service -and $service.Status -eq "Running") {
+            Write-Host "✅ RustDesk servisi çalışıyor"
+        } else {
+            Write-Host "⚠️ RustDesk servisi başlatılamadı, process olarak başlatılıyor..."
+            if (Test-Path "$env:ProgramFiles\RustDesk\rustdesk.exe") {
+                Start-Process -FilePath "$env:ProgramFiles\RustDesk\rustdesk.exe" -WindowStyle Hidden
+                Write-Host "✅ RustDesk process olarak başlatıldı"
+            }
+        }
+
+    - name: Display Connection Information
+      run: |
+        Write-Host ""
+        Write-Host "=========================================="
+        Write-Host "🚀 RUSTDESK BAĞLANTI BİLGİLERİ"
+        Write-Host "=========================================="
+        Write-Host "ID: $env:RUSTDESK_ID"
+        Write-Host "Password: $env:PASSWORD"
+        Write-Host "=========================================="
+        Write-Host ""
+        Write-Host "📝 Not: Bu bilgileri kullanarak bağlanabilirsiniz"
+        Write-Host "🔒 Güvenlik: Bu bilgileri güvende tutun!"
+        Write-Host ""
+
+    - name: Verify Installation
+      run: |
+        # Kurulumu doğrula
+        Write-Host "Kurulum doğrulanıyor..."
+        
+        $success = $true
+        
+        # Process kontrolü
+        $process = Get-Process rustdesk -ErrorAction SilentlyContinue
+        if ($process) {
+            Write-Host "✅ RustDesk process çalışıyor"
+        } else {
+            Write-Host "❌ RustDesk process çalışmıyor"
+            $success = $false
+        }
+        
+        # ID kontrolü
+        if ($env:RUSTDESK_ID) {
+            Write-Host "✅ RustDesk ID alındı: $env:RUSTDESK_ID"
+        } else {
+            Write-Host "❌ RustDesk ID alınamadı"
+            $success = $false
+        }
+        
+        # Şifre kontrolü
+        if ($env:PASSWORD) {
+            Write-Host "✅ Şifre ayarlandı"
+        } else {
+            Write-Host "❌ Şifre ayarlanamadı"
+            $success = $false
+        }
+        
+        if ($success) {
+            Write-Host "🎉 RustDesk kurulumu başarılı!"
+        } else {
+            Write-Host "💥 RustDesk kurulumunda sorunlar var!"
+            exit 1
+        }
