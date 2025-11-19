@@ -1,0 +1,131 @@
+name: Install and Monitor RustDesk
+
+on:
+  workflow_dispatch:  # Manuel tetikleme
+  push:
+    branches: [ main, master ]
+
+jobs:
+  install-rustdesk-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Download Latest RustDesk
+      run: |
+        Write-Host "⬇️ Downloading RustDesk..."
+        $url = "https://github.com/rustdesk/rustdesk/releases/latest/download/RustDesk-Windows-x64.exe"
+        $output = "RustDesk-Setup.exe"
+        Invoke-WebRequest -Uri $url -OutFile $output -UserAgent "GitHubActions"
+        Write-Host "✅ RustDesk downloaded successfully"
+      
+    - name: Silent Install RustDesk
+      run: |
+        Write-Host "🔄 Installing RustDesk silently..."
+        Start-Process -FilePath ".\RustDesk-Setup.exe" -ArgumentList "--silent-install" -Wait -NoNewWindow
+        Start-Sleep -Seconds 10
+        Write-Host "✅ Installation completed"
+      
+    - name: Set Custom ID and Password
+      run: |
+        $customId = "GH" + (Get-Date -Format "yyyyMMddHHmmss")
+        $customPassword = "GitHubAction$((Get-Random -Maximum 9999))"
+        
+        Write-Host "🆔 Setting custom ID: $customId"
+        Write-Host "🔒 Setting custom password: $customPassword"
+        
+        Start-Process -FilePath "C:\Program Files\RustDesk\RustDesk.exe" -ArgumentList "--set-id", $customId, "--password", $customPassword -WindowStyle Hidden
+        
+        echo "RUSTDESK_ID=$customId" >> $env:GITHUB_ENV
+        echo "RUSTDESK_PASSWORD=$customPassword" >> $env:GITHUB_ENV
+      
+    - name: Wait for RustDesk to Initialize
+      run: |
+        Write-Host "⏳ Waiting for RustDesk to initialize..."
+        Start-Sleep -Seconds 15
+        
+        $processes = Get-Process -Name "rustdesk" -ErrorAction SilentlyContinue
+        if ($processes) {
+            Write-Host "✅ RustDesk is running with $($processes.Count) processes"
+        } else {
+            Write-Host "⚠️ Starting RustDesk..."
+            Start-Process -FilePath "C:\Program Files\RustDesk\RustDesk.exe" -WindowStyle Hidden
+            Start-Sleep -Seconds 10
+        }
+      
+    - name: Display Connection Information
+      run: |
+        Write-Host ""
+        Write-Host "🎯" * 60
+        Write-Host "🎯                 RUSTDESK CONNECTION INFORMATION"
+        Write-Host "🎯" * 60
+        Write-Host ""
+        Write-Host "🆔 ID: $env:RUSTDESK_ID"
+        Write-Host "🔒 PASSWORD: $env:RUSTDESK_PASSWORD" 
+        Write-Host ""
+        Write-Host "💻 PLATFORM: Windows GitHub Actions Runner"
+        Write-Host "🕒 CREATED: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+        Write-Host ""
+        Write-Host "🔗 CONNECTION INSTRUCTIONS:"
+        Write-Host "   1. Open RustDesk on your local machine"
+        Write-Host "   2. Enter the ID above in remote ID field"
+        Write-Host "   3. Use the password when prompted"
+        Write-Host "   4. Click Connect"
+        Write-Host ""
+        Write-Host "⚡ QUICK COPY:"
+        Write-Host "   ID: $env:RUSTDESK_ID"
+        Write-Host "   PASS: $env:RUSTDESK_PASSWORD"
+        Write-Host ""
+        Write-Host "🎯" * 60
+        Write-Host ""
+      
+    - name: Infinite Monitoring Loop
+      run: |
+        Write-Host ""
+        Write-Host "🔄 STARTING INFINITE MONITORING LOOP"
+        Write-Host "====================================="
+        Write-Host "This will run forever until workflow is manually stopped"
+        Write-Host "Press the 'Cancel workflow' button in GitHub to stop"
+        Write-Host ""
+        
+        $counter = 1
+        
+        while ($true) {
+            $randomSeconds = Get-Random -Minimum 30 -Maximum 121  # 30-120 saniye arası
+            $currentTime = Get-Date -Format "HH:mm:ss"
+            
+            Write-Host ""
+            Write-Host "⏰ TIME - [$currentTime] ITERATION $counter"
+            Write-Host "----------------------------------------"
+            Write-Host "🆔 RustDesk ID: $env:RUSTDESK_ID"
+            Write-Host "🔒 Password: $env:RUSTDESK_PASSWORD"
+            Write-Host "📊 Status: ✅ ACTIVE - Waiting for connection..."
+            Write-Host "⏳ Next update in: $randomSeconds seconds"
+            Write-Host "----------------------------------------"
+            
+            # RustDesk process kontrolü
+            $rustdeskProcesses = Get-Process -Name "rustdesk" -ErrorAction SilentlyContinue
+            if ($rustdeskProcesses) {
+                Write-Host "✅ RustDesk Running - $($rustdeskProcesses.Count) processes"
+            } else {
+                Write-Host "⚠️ RustDesk not detected, restarting..."
+                Start-Process -FilePath "C:\Program Files\RustDesk\RustDesk.exe" -WindowStyle Hidden
+                Write-Host "✅ RustDesk restarted"
+            }
+            
+            # Sistem bilgileri
+            try {
+                $cpuUsage = (Get-Counter "\Processor(_Total)\% Processor Time" -SampleInterval 1 -MaxSamples 1).CounterSamples.CookedValue
+                $memoryUsage = [math]::Round((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory / 1MB, 2)
+                Write-Host "💻 CPU: $([math]::Round($cpuUsage, 2))% | 🎯 Memory: $memoryUsage GB free"
+            } catch {
+                Write-Host "💻 System stats: N/A"
+            }
+            
+            Write-Host "😴 Sleeping for $randomSeconds seconds..."
+            Start-Sleep -Seconds $randomSeconds
+            
+            $counter++
+        }
