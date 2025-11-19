@@ -1,0 +1,200 @@
+name: Install and Monitor RustDesk
+
+on:
+  workflow_dispatch:  # Manuel tetikleme
+  push:
+    branches: [ main, master ]
+
+jobs:
+  install-rustdesk-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Download RustDesk
+      run: |
+        Write-Host "⬇️ Downloading RustDesk 1.4.4..."
+        $url = "https://github.com/rustdesk/rustdesk/releases/download/1.4.4/rustdesk-1.4.4-x86_64.exe"
+        $output = "RustDesk-Setup.exe"
+        
+        # RustDesk'i indir
+        Invoke-WebRequest -Uri $url -OutFile $output
+        Write-Host "✅ RustDesk downloaded successfully - File size: $((Get-Item $output).Length) bytes"
+      
+    - name: Silent Install RustDesk
+      run: |
+        Write-Host "🔄 Installing RustDesk silently..."
+        if (Test-Path ".\RustDesk-Setup.exe") {
+            # Silent install parametresi ile kur
+            Start-Process -FilePath ".\RustDesk-Setup.exe" -ArgumentList "--silent-install" -Wait -NoNewWindow
+            Start-Sleep -Seconds 10
+            Write-Host "✅ Silent installation completed"
+            
+            # Kurulum sonrası dosya kontrolü
+            $installPaths = @(
+                "C:\Program Files\RustDesk\RustDesk.exe",
+                "$env:PROGRAMFILES\RustDesk\RustDesk.exe"
+            )
+            
+            foreach ($path in $installPaths) {
+                if (Test-Path $path) {
+                    Write-Host "✅ RustDesk found at: $path"
+                    break
+                }
+            }
+        } else {
+            Write-Host "❌ Installer not found"
+            exit 1
+        }
+      
+    - name: Set Custom ID and Password
+      run: |
+        $customId = "GH" + (Get-Date -Format "yyyyMMddHHmmss")
+        $customPassword = "GitHubAction$((Get-Random -Maximum 9999))"
+        
+        Write-Host "🆔 Setting custom ID: $customId"
+        Write-Host "🔒 Setting custom password: $customPassword"
+        
+        # RustDesk'i başlat ve ID/password ayarla
+        $rustdeskPaths = @(
+            "C:\Program Files\RustDesk\RustDesk.exe",
+            "$env:PROGRAMFILES\RustDesk\RustDesk.exe"
+        )
+        
+        $rustdeskStarted = $false
+        foreach ($path in $rustdeskPaths) {
+            if (Test-Path $path) {
+                Write-Host "🚀 Starting RustDesk from: $path"
+                Start-Process -FilePath $path -ArgumentList "--set-id", $customId, "--password", $customPassword -WindowStyle Hidden
+                $rustdeskStarted = $true
+                Write-Host "✅ RustDesk started with custom credentials"
+                break
+            }
+        }
+        
+        if (-not $rustdeskStarted) {
+            Write-Host "❌ RustDesk executable not found in standard locations"
+            # Son çare olarak kurulum dosyasını kullan
+            Start-Process -FilePath ".\RustDesk-Setup.exe" -ArgumentList "--set-id", $customId, "--password", $customPassword -WindowStyle Hidden
+            Write-Host "⚠️ Started setup with credentials as fallback"
+        }
+        
+        echo "RUSTDESK_ID=$customId" >> $env:GITHUB_ENV
+        echo "RUSTDESK_PASSWORD=$customPassword" >> $env:GITHUB_ENV
+      
+    - name: Wait for RustDesk to Initialize
+      run: |
+        Write-Host "⏳ Waiting for RustDesk to initialize..."
+        Start-Sleep -Seconds 15
+        
+        # Process kontrolü
+        $rustdeskProcesses = Get-Process -Name "rustdesk" -ErrorAction SilentlyContinue
+        if ($rustdeskProcesses) {
+            Write-Host "✅ RustDesk is running with $($rustdeskProcesses.Count) processes"
+            foreach ($process in $rustdeskProcesses) {
+                Write-Host "   - PID $($process.Id): $($process.ProcessName)"
+            }
+        } else {
+            Write-Host "⚠️ RustDesk processes not found by name, checking all processes..."
+            $allProcesses = Get-Process | Where-Object { $_.ProcessName -like "*rustdesk*" -or $_.ProcessName -like "*RustDesk*" }
+            if ($allProcesses) {
+                Write-Host "✅ Found related processes:"
+                foreach ($process in $allProcesses) {
+                    Write-Host "   - PID $($process.Id): $($process.ProcessName)"
+                }
+            } else {
+                Write-Host "❌ No RustDesk processes found, but continuing anyway..."
+            }
+        }
+      
+    - name: Display Connection Information
+      run: |
+        Write-Host ""
+        Write-Host "🎯" * 70
+        Write-Host "🎯                    RUSTDESK CONNECTION INFORMATION"
+        Write-Host "🎯" * 70
+        Write-Host ""
+        Write-Host "🆔 ID: $env:RUSTDESK_ID"
+        Write-Host "🔒 PASSWORD: $env:RUSTDESK_PASSWORD" 
+        Write-Host ""
+        Write-Host "💻 PLATFORM: Windows Server 2025 GitHub Actions"
+        Write-Host "📦 VERSION: RustDesk 1.4.4"
+        Write-Host "🕒 CREATED: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+        Write-Host ""
+        Write-Host "🔗 CONNECTION INSTRUCTIONS:"
+        Write-Host "   1. Open RustDesk on your local machine"
+        Write-Host "   2. Enter the ID above in remote ID field"
+        Write-Host "   3. Use the password when prompted"
+        Write-Host "   4. Click Connect"
+        Write-Host ""
+        Write-Host "⚡ QUICK COPY:"
+        Write-Host "   ID: $env:RUSTDESK_ID"
+        Write-Host "   PASS: $env:RUSTDESK_PASSWORD"
+        Write-Host ""
+        Write-Host "🎯" * 70
+        Write-Host ""
+      
+    - name: Infinite Monitoring Loop
+      run: |
+        Write-Host ""
+        Write-Host "🔄 STARTING INFINITE MONITORING LOOP"
+        Write-Host "====================================="
+        Write-Host "This will run forever until workflow is manually stopped"
+        Write-Host "Press the 'Cancel workflow' button in GitHub to stop"
+        Write-Host ""
+        
+        $counter = 1
+        
+        while ($true) {
+            $randomSeconds = Get-Random -Minimum 30 -Maximum 61  # 30-60 saniye arası
+            $currentTime = Get-Date -Format "HH:mm:ss"
+            
+            Write-Host ""
+            Write-Host "⏰ TIME - [$currentTime] ITERATION $counter"
+            Write-Host "----------------------------------------"
+            Write-Host "🆔 RustDesk ID: $env:RUSTDESK_ID"
+            Write-Host "🔒 Password: $env:RUSTDESK_PASSWORD"
+            Write-Host "📊 Status: ✅ ACTIVE - Waiting for connection..."
+            Write-Host "⏳ Next update in: $randomSeconds seconds"
+            Write-Host "----------------------------------------"
+            
+            # RustDesk process kontrolü
+            $rustdeskProcesses = Get-Process -Name "rustdesk" -ErrorAction SilentlyContinue
+            if (-not $rustdeskProcesses) {
+                $rustdeskProcesses = Get-Process | Where-Object { $_.ProcessName -like "*RustDesk*" }
+            }
+            
+            if ($rustdeskProcesses) {
+                Write-Host "✅ RustDesk Running - $($rustdeskProcesses.Count) process(es)"
+                # CPU ve memory kullanımı
+                try {
+                    $cpuUsage = (Get-Counter "\Processor(_Total)\% Processor Time" -SampleInterval 1 -MaxSamples 1 -ErrorAction SilentlyContinue).CounterSamples.CookedValue
+                    $memoryUsage = [math]::Round((Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue).FreePhysicalMemory / 1MB, 2)
+                    Write-Host "💻 System - CPU: $([math]::Round($cpuUsage, 2))% | Memory: $memoryUsage GB free"
+                } catch {
+                    Write-Host "💻 System stats: N/A"
+                }
+            } else {
+                Write-Host "⚠️ RustDesk not running"
+                # RustDesk'i yeniden başlatmayı deneyelim
+                $rustdeskPaths = @(
+                    "C:\Program Files\RustDesk\RustDesk.exe",
+                    "$env:PROGRAMFILES\RustDesk\RustDesk.exe"
+                )
+                
+                foreach ($path in $rustdeskPaths) {
+                    if (Test-Path $path) {
+                        Start-Process -FilePath $path -WindowStyle Hidden
+                        Write-Host "🔄 Restarted RustDesk from: $path"
+                        break
+                    }
+                }
+            }
+            
+            Write-Host "😴 Sleeping for $randomSeconds seconds..."
+            Start-Sleep -Seconds $randomSeconds
+            
+            $counter++
+        } 
